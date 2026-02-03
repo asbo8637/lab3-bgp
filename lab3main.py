@@ -10,12 +10,12 @@ from netmiko import ConnectHandler
 
 config = load_json()
 value = validate_ipv4_list(config["IPS"])
-print(value)
+print(f"Are IP's correct: {value}")
 if not value:
     raise ValueError("Invalid IP list")
 
 value = ping(config["IPS"])
-print(value)
+print(f"Can I ping: {value}")
 if not value:
     raise ValueError("Could not Ping")
 
@@ -42,13 +42,13 @@ def get_bgp_neighbor_state(conn, neighbor_ip: str) -> str:
 CONFIG_ERROR_PATTERN = r"%\s*(Invalid input|Incomplete command|Ambiguous command)"
 
 
-def set_up_router(router, data, count, name):
+def set_up_router(router, ssh_data, bgp_data, count, name):
     device = {
         "device_type": "cisco_ios",
-        "host": data["IPS"][count],
-        "username": data["user"],
-        "password": data["pass"],
-        "secret":data["pass"]
+        "host": ssh_data["IPS"][count],
+        "username": ssh_data["user"],
+        "password": ssh_data["pass"],
+        "secret": ssh_data["pass"]
     }
 
     conn = ConnectHandler(**device)
@@ -64,15 +64,14 @@ def set_up_router(router, data, count, name):
 
     output = conn.send_config_set(bgp_commands, error_pattern=CONFIG_ERROR_PATTERN)
 
-    print(f"BGP configured on {count}")
-    print(output)
+    print(f"BGP configured on {name}")
 
     time.sleep(2)
     neighbor_state = get_bgp_neighbor_state(conn, router["neighbor_ip"])
     with file_lock:
-        data["Routers"][name]["neighbor_state"] = neighbor_state
+        bgp_data["Routers"][name]["neighbor_state"] = neighbor_state
         with open("./bgp.conf", "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+            json.dump(bgp_data, f, indent=2)
 
 
     bgp_routes = conn.send_command("show ip route bgp")
@@ -94,7 +93,7 @@ with ThreadPoolExecutor(max_workers=len(routers)) as executor:
     futures = []
 
     for count, (name, router) in enumerate(routers.items()):
-        futures.append(executor.submit(set_up_router, router, config, count, name))
+        futures.append(executor.submit(set_up_router, router, config, data, count, name))
 
     for future in as_completed(futures):
         try:
