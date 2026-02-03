@@ -100,6 +100,7 @@ def set_up_router(router, ssh_data, bgp_data, count, name):
         f.write(running_config)
     print(f"Saved config to {running_config_file}")
 
+    ping_test(bgp_data, name, conn)
     conn.disconnect()
     return neighbor_state
 
