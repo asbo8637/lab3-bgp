@@ -31,6 +31,8 @@ def get_bgp_neighbor_state(conn, neighbor_ip: str) -> str:
         if line.strip().startswith(neighbor_ip):
             parts = line.split()
             state = parts[-1]
+            if state.isdigit():
+                state = "Established"
             print("BGP Neighbor IP \ BGP Neighbor AS \ BGP Neighbor State")
             print(f"{neighbor_ip}\ {parts[2]} \{state}")
             return state
@@ -40,6 +42,20 @@ def get_bgp_neighbor_state(conn, neighbor_ip: str) -> str:
 
 
 CONFIG_ERROR_PATTERN = r"%\s*(Invalid input|Incomplete command|Ambiguous command)"
+
+def ping_test(bgp_data, name, conn):
+    if name == "R1":
+        other_name = "R2"
+    elif name == "R2":
+        other_name = "R1"
+    else:
+        raise ValueError(f"Unexpected router name for ping test")
+    
+    target_ips = bgp_data["Routers"][other_name]["NetworkListToAdvertise"]
+    print(f"Ping test results from {name} to {other_name} loopbacks:")
+    for ip in target_ips:
+        output = conn.send_command(f"ping {ip} repeat 1")
+        print(f"{output}")
 
 
 def set_up_router(router, ssh_data, bgp_data, count, name):
